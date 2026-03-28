@@ -1,0 +1,833 @@
+<!doctype html>
+<html lang="en" class="h-full">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Missoula Happy Hour Map</title>
+    <script src="https://cdn.tailwindcss.com/3.4.17"></script>
+    <link
+      rel="stylesheet"
+      href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css"
+    />
+    <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+    <script src="/_sdk/element_sdk.js"></script>
+    <link
+      href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500;600;700&display=swap"
+      rel="stylesheet"
+    />
+    <script
+      src="https://cdn.jsdelivr.net/npm/lucide@0.263.0/dist/umd/lucide.min.js"
+    ></script>
+    <script src="/_sdk/data_sdk.js" type="text/javascript"></script>
+    <style>
+      :root {
+        --bg-0: #020617;
+        --bg-1: #0f172a;
+        --bg-2: #1e293b;
+        --bg-3: #334155;
+        --text-dim: #94a3b8;
+      }
+
+      * {
+        box-sizing: border-box;
+        font-family: "Outfit", sans-serif;
+      }
+
+      body {
+        margin: 0;
+        background:
+          radial-gradient(circle at top left, rgba(251, 191, 36, 0.14), transparent 28%),
+          radial-gradient(circle at top right, rgba(244, 63, 94, 0.16), transparent 26%),
+          linear-gradient(180deg, #0f172a 0%, #020617 100%);
+      }
+
+      .custom-marker {
+        background: none;
+        border: none;
+      }
+
+      .marker-pin {
+        width: 36px;
+        height: 36px;
+        border-radius: 50% 50% 50% 0;
+        transform: rotate(-45deg);
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        box-shadow: 0 8px 22px rgba(15, 23, 42, 0.45);
+        transition: transform 0.2s ease, box-shadow 0.2s ease;
+        cursor: pointer;
+      }
+
+      .marker-pin:hover {
+        transform: rotate(-45deg) scale(1.12);
+        box-shadow: 0 10px 28px rgba(15, 23, 42, 0.52);
+      }
+
+      .marker-icon {
+        transform: rotate(45deg);
+        font-size: 16px;
+      }
+
+      .leaflet-popup-content-wrapper {
+        border-radius: 18px;
+        padding: 0;
+        overflow: hidden;
+        box-shadow: 0 16px 44px rgba(2, 6, 23, 0.4);
+      }
+
+      .leaflet-popup-content {
+        margin: 0;
+        min-width: 280px;
+        max-width: 320px;
+      }
+
+      .leaflet-popup-tip {
+        background: #1e293b;
+      }
+
+      .day-badge {
+        padding: 4px 8px;
+        border-radius: 999px;
+        font-size: 11px;
+        font-weight: 700;
+        text-transform: uppercase;
+      }
+
+      .day-active {
+        background: #10b981;
+        color: white;
+      }
+
+      .day-inactive {
+        background: #374151;
+        color: #9ca3af;
+      }
+
+      .filter-btn {
+        transition:
+          all 0.2s ease,
+          transform 0.2s ease;
+      }
+
+      .filter-btn:hover {
+        transform: translateY(-1px);
+      }
+
+      .filter-btn.active {
+        box-shadow: 0 8px 20px rgba(15, 23, 42, 0.22);
+      }
+
+      #map {
+        background:
+          radial-gradient(circle at 30% 20%, rgba(251, 191, 36, 0.1), transparent 30%),
+          linear-gradient(135deg, #e2e8f0 0%, #cbd5e1 100%);
+      }
+
+      .venue-card {
+        transition:
+          transform 0.2s ease,
+          background 0.2s ease,
+          border-color 0.2s ease;
+      }
+
+      .venue-card:hover {
+        transform: translateY(-1px);
+        background: rgba(255, 255, 255, 0.09);
+        border-color: rgba(251, 191, 36, 0.4);
+      }
+
+      .line-clamp-2 {
+        display: -webkit-box;
+        -webkit-line-clamp: 2;
+        -webkit-box-orient: vertical;
+        overflow: hidden;
+      }
+
+      .glass-panel {
+        background: rgba(15, 23, 42, 0.78);
+        backdrop-filter: blur(14px);
+      }
+
+      .empty-state {
+        border: 1px dashed rgba(148, 163, 184, 0.3);
+      }
+
+      ::-webkit-scrollbar {
+        width: 8px;
+        height: 8px;
+      }
+
+      ::-webkit-scrollbar-track {
+        background: rgba(15, 23, 42, 0.35);
+        border-radius: 999px;
+      }
+
+      ::-webkit-scrollbar-thumb {
+        background: rgba(203, 213, 225, 0.25);
+        border-radius: 999px;
+      }
+
+      @media (max-width: 1023px) {
+        #map {
+          min-height: 100%;
+        }
+      }
+    </style>
+  </head>
+  <body class="h-full overflow-hidden text-white">
+    <div class="flex h-full flex-col">
+      <header class="flex-shrink-0 bg-gradient-to-r from-amber-600 via-orange-500 to-rose-500 px-4 py-4 shadow-lg sm:px-6">
+        <div class="flex items-center justify-between gap-3">
+          <div>
+            <h1 id="map-title" class="text-2xl font-bold tracking-tight">Missoula Happy Hour Map</h1>
+            <p id="subtitle-text" class="mt-1 text-sm text-amber-100">Find the best deals in town</p>
+          </div>
+          <div class="flex items-center gap-2 sm:gap-3">
+            <div class="rounded-full bg-white/20 px-4 py-2 text-sm font-medium backdrop-blur-sm">
+              <span id="venue-count">0</span> Venues
+            </div>
+            <div class="hidden rounded-full bg-white/20 px-4 py-2 text-sm font-medium backdrop-blur-sm sm:block">
+              Missoula, MT
+            </div>
+          </div>
+        </div>
+      </header>
+
+      <div class="flex-shrink-0 border-b border-slate-700 bg-slate-900/90 px-3 py-2.5">
+        <div class="flex min-w-max items-center gap-2.5 overflow-x-auto">
+          <button
+            onclick="filterByNow()"
+            class="filter-btn rounded-full bg-gradient-to-r from-emerald-500 to-teal-500 px-3.5 py-1.5 text-sm font-semibold text-white shadow-lg hover:from-emerald-600 hover:to-teal-600"
+          >
+            Now
+          </button>
+          <div class="mx-1 h-4 w-px bg-slate-600"></div>
+          <span class="mr-1 whitespace-nowrap text-sm font-medium text-slate-400">Filter:</span>
+          <button
+            onclick="filterByCategory('all')"
+            class="filter-btn active rounded-full bg-amber-500 px-3 py-1.5 text-sm font-semibold text-white"
+            data-category="all"
+          >
+            All
+          </button>
+          <button
+            onclick="filterByCategory('Bar')"
+            class="filter-btn rounded-full bg-slate-700 px-3 py-1.5 text-sm font-semibold text-slate-300"
+            data-category="Bar"
+          >
+            Bars
+          </button>
+          <button
+            onclick="filterByCategory('Bar / Restaurant')"
+            class="filter-btn rounded-full bg-slate-700 px-3 py-1.5 text-sm font-semibold text-slate-300"
+            data-category="Bar / Restaurant"
+          >
+            Bar & Rest
+          </button>
+          <button
+            onclick="filterByCategory('Restaurant')"
+            class="filter-btn rounded-full bg-slate-700 px-3 py-1.5 text-sm font-semibold text-slate-300"
+            data-category="Restaurant"
+          >
+            Restaurants
+          </button>
+          <button
+            onclick="filterByCategory('Brewery')"
+            class="filter-btn rounded-full bg-slate-700 px-3 py-1.5 text-sm font-semibold text-slate-300"
+            data-category="Brewery"
+          >
+            Breweries
+          </button>
+          <div class="mx-1 h-4 w-px bg-slate-600"></div>
+          <span class="mr-1 whitespace-nowrap text-sm font-medium text-slate-400">Day:</span>
+          <select
+            id="day-filter"
+            onchange="filterByDay(this.value)"
+            class="cursor-pointer rounded-full border-0 bg-slate-700 px-2.5 py-1.5 text-sm font-semibold text-white outline-none"
+          >
+            <option value="all">Any</option>
+            <option value="sunday">Sun</option>
+            <option value="monday">Mon</option>
+            <option value="tuesday">Tue</option>
+            <option value="wednesday">Wed</option>
+            <option value="thursday">Thu</option>
+            <option value="friday">Fri</option>
+            <option value="saturday">Sat</option>
+          </select>
+          <div class="mx-1 h-4 w-px bg-slate-600"></div>
+          <span class="mr-1 whitespace-nowrap text-sm font-medium text-slate-400">Time:</span>
+          <select
+            id="start-time-filter"
+            onchange="updateTimeFilter()"
+            class="cursor-pointer rounded-full border-0 bg-slate-700 px-2.5 py-1.5 text-sm font-semibold text-white outline-none"
+          >
+            <option value="00:00">12a</option>
+            <option value="01:00">1a</option>
+            <option value="02:00">2a</option>
+            <option value="03:00">3a</option>
+            <option value="04:00">4a</option>
+            <option value="05:00">5a</option>
+            <option value="06:00">6a</option>
+            <option value="07:00">7a</option>
+            <option value="08:00">8a</option>
+            <option value="09:00">9a</option>
+            <option value="10:00">10a</option>
+            <option value="11:00">11a</option>
+            <option value="12:00">12p</option>
+            <option value="13:00">1p</option>
+            <option value="14:00">2p</option>
+            <option value="15:00">3p</option>
+            <option value="16:00">4p</option>
+            <option value="17:00">5p</option>
+            <option value="18:00">6p</option>
+            <option value="19:00">7p</option>
+            <option value="20:00">8p</option>
+            <option value="21:00">9p</option>
+            <option value="22:00">10p</option>
+            <option value="23:00">11p</option>
+          </select>
+          <span class="mx-1 text-sm text-slate-400">to</span>
+          <select
+            id="end-time-filter"
+            onchange="updateTimeFilter()"
+            class="cursor-pointer rounded-full border-0 bg-slate-700 px-2.5 py-1.5 text-sm font-semibold text-white outline-none"
+          >
+            <option value="00:00">12a</option>
+            <option value="01:00">1a</option>
+            <option value="02:00">2a</option>
+            <option value="03:00">3a</option>
+            <option value="04:00">4a</option>
+            <option value="05:00">5a</option>
+            <option value="06:00">6a</option>
+            <option value="07:00">7a</option>
+            <option value="08:00">8a</option>
+            <option value="09:00">9a</option>
+            <option value="10:00">10a</option>
+            <option value="11:00">11a</option>
+            <option value="12:00">12p</option>
+            <option value="13:00">1p</option>
+            <option value="14:00">2p</option>
+            <option value="15:00">3p</option>
+            <option value="16:00">4p</option>
+            <option value="17:00">5p</option>
+            <option value="18:00">6p</option>
+            <option value="19:00">7p</option>
+            <option value="20:00">8p</option>
+            <option value="21:00">9p</option>
+            <option value="22:00">10p</option>
+            <option value="23:00">11p</option>
+          </select>
+        </div>
+        <p id="results-summary" class="mt-2 text-sm text-slate-400">Showing all venues.</p>
+      </div>
+
+      <div class="flex flex-1 overflow-hidden">
+        <div class="relative flex-1">
+          <div id="map" class="h-full w-full"></div>
+          <div class="glass-panel absolute bottom-4 left-4 z-[1000] rounded-2xl p-4 shadow-xl">
+            <h3 class="mb-3 text-xs font-bold uppercase tracking-[0.18em] text-slate-400">Legend</h3>
+            <div class="space-y-2">
+              <div class="flex items-center gap-2">
+                <div class="h-4 w-4 rounded-full bg-purple-500"></div>
+                <span class="text-sm text-slate-300">Bar</span>
+              </div>
+              <div class="flex items-center gap-2">
+                <div class="h-4 w-4 rounded-full bg-emerald-500"></div>
+                <span class="text-sm text-slate-300">Bar & Restaurant</span>
+              </div>
+              <div class="flex items-center gap-2">
+                <div class="h-4 w-4 rounded-full bg-amber-500"></div>
+                <span class="text-sm text-slate-300">Restaurant</span>
+              </div>
+              <div class="flex items-center gap-2">
+                <div class="h-4 w-4 rounded-full bg-rose-500"></div>
+                <span class="text-sm text-slate-300">Brewery</span>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <aside class="hidden w-80 flex-col overflow-hidden border-l border-slate-700 bg-slate-800 lg:flex">
+          <div class="flex-shrink-0 border-b border-slate-700 p-4">
+            <h2 class="text-lg font-bold">Available Happy Hours</h2>
+            <p class="text-sm text-slate-400">Based on your filters</p>
+          </div>
+          <div id="venue-list" class="flex-1 space-y-2 overflow-y-auto p-2"></div>
+        </aside>
+      </div>
+
+      <div
+        id="mobile-panel"
+        class="fixed bottom-0 left-0 right-0 z-[1001] max-h-[60%] translate-y-full overflow-hidden rounded-t-3xl bg-slate-800 shadow-2xl transition-transform duration-300 lg:hidden"
+      >
+        <div class="border-b border-slate-700 p-4">
+          <div class="mx-auto mb-3 h-1 w-12 rounded-full bg-slate-600"></div>
+          <div class="flex items-center justify-between">
+            <h2 class="text-lg font-bold">Venues</h2>
+            <button onclick="closeMobilePanel()" class="p-2 text-slate-400 hover:text-white" aria-label="Close venue list">
+              ✕
+            </button>
+          </div>
+        </div>
+        <div id="mobile-venue-list" class="max-h-[calc(60vh-80px)] space-y-2 overflow-y-auto p-2"></div>
+      </div>
+
+      <button
+        onclick="toggleMobilePanel()"
+        class="fixed bottom-4 right-4 z-[1000] flex h-14 w-14 items-center justify-center rounded-full bg-amber-500 text-xl text-white shadow-lg transition-colors hover:bg-amber-600 lg:hidden"
+        aria-label="Open venue list"
+      >
+        📋
+      </button>
+    </div>
+
+    <script>
+      const defaultConfig = {
+        map_title: "Missoula Happy Hour Map",
+        subtitle_text: "Find the best deals in town",
+      };
+
+      const venues = [
+        { name: "Bar Plata", category: "Bar", address: "107 S Higgins Ave #6, Missoula, MT 59802", lat: 46.8700504, lng: -113.9955843, days: { sunday: true, monday: true, tuesday: true, wednesday: true, thursday: true, friday: true, saturday: true }, happyHourDays: "Daily", startTime: "3:00 PM", endTime: "5:00 PM", startTimeMinutes: 15 * 60, endTimeMinutes: 17 * 60, dealType: "Food & Drink", dealHighlight: "well spirits $4, dirty martini $6, craft cocktails $7, porrón wine $15, rotating conservas $5, carne & queso $3 each", notes: "Craft cocktails & wine-focused" },
+        { name: "Thomas Meagher Bar", category: "Bar", address: "130 W Pine St, Missoula, MT 59802", lat: 46.8736933, lng: -113.9941911, days: { sunday: false, monday: true, tuesday: true, wednesday: true, thursday: true, friday: true, saturday: false }, happyHourDays: "Mon–Fri", startTime: "3:30 PM", endTime: "5:30 PM", startTimeMinutes: 15.5 * 60, endTimeMinutes: 17.5 * 60, dealType: "Drinks", dealHighlight: "Draft beers $3, well drinks $3, wine $3", notes: "" },
+        { name: "Union Club Bar", category: "Bar", address: "208 E Main St, Missoula, MT 59802", lat: 46.8708466, lng: -113.992524, days: { sunday: false, monday: true, tuesday: true, wednesday: true, thursday: true, friday: true, saturday: false }, happyHourDays: "Mon–Fri", startTime: "4:00 PM", endTime: "7:00 PM", startTimeMinutes: 16 * 60, endTimeMinutes: 19 * 60, dealType: "Drinks", dealHighlight: "Happy hour specials available", notes: "" },
+        { name: "James Bar", category: "Bar", address: "127 W Alder Street, Missoula, MT 59802", lat: 46.8751719, lng: -113.9932298, days: { sunday: false, monday: false, tuesday: true, wednesday: false, thursday: true, friday: true, saturday: false }, happyHourDays: "Tue–Fri", startTime: "3:00 PM", endTime: "6:00 PM", startTimeMinutes: 15 * 60, endTimeMinutes: 18 * 60, dealType: "Food & Drink", dealHighlight: "Wine bottles $25, martinis & Old Fashioneds $3 off, house wine $5, draft beer $5, small plates $4", notes: "Wine-focused happy hour with house white and chilled red served in 7 oz pours. Small bites with Le Petit Crostini." },
+        { name: "Iron Horse Brew Pub", category: "Bar / Restaurant", address: "501 N Higgins Ave, Missoula, MT 59802", lat: 46.8745327, lng: -113.9930031, days: { sunday: false, monday: true, tuesday: true, wednesday: true, thursday: false, friday: true, saturday: false }, happyHourDays: "Mon–Wed + Fri", startTime: "11:00 AM", endTime: "10:00 PM", startTimeMinutes: 11 * 60, endTimeMinutes: 22 * 60, dealType: "Food & Drink", dealHighlight: "Craft cocktails $6, Iron Horse cocktails $3 off, martinis $6, White Claw 2 for $6, wine bottles $20, Montana Happy Meal $7", notes: "Mondays: martinis $6 all day. Tuesdays: craft cocktails $6; Iron Horse cocktails $3 off all day. Wednesdays: White Claw 2 for $6 all day; wine bottles $20. Fridays: premium wells $3.50 11pm–midnight. Montana Happy Meal includes Bulleit Bourbon shot and Bitterroot Brewing Dirt Church can." },
+        { name: "Laughing Grizzly Restaurant, Bar & Casino", category: "Bar / Restaurant", address: "2300 W Broadway St, Missoula, MT 59808", lat: 46.8862335, lng: -114.0254189, days: { sunday: true, monday: true, tuesday: true, wednesday: true, thursday: true, friday: true, saturday: true }, happyHourDays: "Daily", startTime: "5:00 PM", endTime: "10:00 PM", startTimeMinutes: 17 * 60, endTimeMinutes: 22 * 60, dealType: "Drinks", dealHighlight: "1/2 off all drinks", notes: "" },
+        { name: "Buffalo Wild Wings", category: "Bar / Restaurant", address: "2615 Radio Way, Missoula, MT 59808", lat: 46.889156, lng: -114.0418739, days: { sunday: false, monday: true, tuesday: true, wednesday: true, thursday: true, friday: true, saturday: false }, happyHourDays: "Mon–Fri", startTime: "3:00 PM", endTime: "6:00 PM", startTimeMinutes: 15 * 60, endTimeMinutes: 18 * 60, dealType: "Food & Drink", dealHighlight: "Draft beers $3-$5, cocktails and drinks $4–$6, shareable appetizers $3–$6", notes: "" },
+        { name: "Old Chicago Pizza + Taproom", category: "Bar / Restaurant", address: "3630 N Reserve St, Missoula, MT 59808", lat: 46.9026055, lng: -114.0385115, days: { sunday: false, monday: true, tuesday: true, wednesday: true, thursday: true, friday: true, saturday: false }, happyHourDays: "Mon-Fri", startTime: "4:00 PM", endTime: "6:00 PM", startTimeMinutes: 16 * 60, endTimeMinutes: 18 * 60, dealType: "Food & Drink", dealHighlight: "half-price appetizers $7, select premium drinks", notes: "" },
+        { name: "Applebee's Grill + Bar", category: "Bar / Restaurant", address: "4041 U.S. Hwy 93 S, Missoula, MT 59801", lat: 46.8340828, lng: -114.0485093, days: { sunday: false, monday: true, tuesday: true, wednesday: true, thursday: true, friday: true, saturday: false }, happyHourDays: "Mon–Fri", startTime: "3:00 PM", endTime: "6:00 PM", startTimeMinutes: 15 * 60, endTimeMinutes: 18 * 60, dealType: "Food & Drink", dealHighlight: "Draft beers $3–$5, cocktails and drinks $4–$6, select appetizers $4–$6", notes: "" },
+        { name: "Marvin's Tavern", category: "Bar", address: "7995 La Flesch Lane, Missoula, MT 59808", lat: 46.9472197, lng: -114.1312895, days: { sunday: false, monday: true, tuesday: true, wednesday: true, thursday: true, friday: true, saturday: false }, happyHourDays: "Mon–Fri", startTime: "3:00 PM", endTime: "6:00 PM", startTimeMinutes: 15 * 60, endTimeMinutes: 18 * 60, dealType: "Food & Drink", dealHighlight: "Domestic draft beers $3–$4, rail cocktails $4–$5, select appetizers $5–$7", notes: "" },
+        { name: "GILD", category: "Restaurant", address: "515 S Higgins Ave, Missoula, MT 59801", lat: 46.8665891, lng: -113.9978748, days: { sunday: false, monday: true, tuesday: true, wednesday: true, thursday: true, friday: true, saturday: false }, happyHourDays: "Mon–Fri", startTime: "3:00 PM", endTime: "5:00 PM", startTimeMinutes: 15 * 60, endTimeMinutes: 17 * 60, dealType: "Food & Drink", dealHighlight: "Draft beers $4–$5, house wine $5, select cocktails $6, select small plates discounted", notes: "menu rotates seasonally" },
+        { name: "Bodega", category: "Bar / Restaurant", address: "221 Ryman St, Missoula, MT 59802", lat: 46.8722112, lng: -113.996035, days: { sunday: false, monday: true, tuesday: true, wednesday: true, thursday: true, friday: true, saturday: false }, happyHourDays: "Mon–Fri", startTime: "4:00 PM", endTime: "6:00 PM", startTimeMinutes: 16 * 60, endTimeMinutes: 18 * 60, dealType: "Food & Drink", dealHighlight: "Draft beers $4–$5, house wine $5, classic cocktails $6, select tapas discounted", notes: "" },
+        { name: "Myrtle Street Taps", category: "Bar", address: "602 Myrtle St, Missoula, MT 59801", lat: 46.8655731, lng: -113.9987681, days: { sunday: true, monday: true, tuesday: true, wednesday: true, thursday: false, friday: false, saturday: false }, happyHourDays: "Sun–Wed", startTime: "8:30 PM", endTime: "10:00 PM", startTimeMinutes: 20.5 * 60, endTimeMinutes: 22 * 60, dealType: "Drinks", dealHighlight: "All draft beer $4", notes: "" },
+        { name: "Cranky Sam Public House", category: "Bar / Restaurant", address: "233 W Main St, Missoula, MT 59802", lat: 46.8717791, lng: -113.9972785, days: { sunday: false, monday: true, tuesday: false, wednesday: false, thursday: false, friday: false, saturday: false }, happyHourDays: "Monday", startTime: "5:00 PM", endTime: "9:00 PM", startTimeMinutes: 17 * 60, endTimeMinutes: 21 * 60, dealType: "Food & Drink", dealHighlight: "$10 food and drink specials", notes: "" },
+        { name: "The Montana Club Restaurant", category: "Bar / Restaurant", address: "4561 N Reserve St, Missoula, MT 59808", lat: 46.9076694, lng: -114.0386198, days: { sunday: false, monday: true, tuesday: true, wednesday: true, thursday: true, friday: true, saturday: false }, happyHourDays: "Mon–Fri", startTime: "3:00 PM", endTime: "6:00 PM", startTimeMinutes: 15 * 60, endTimeMinutes: 18 * 60, dealType: "Food & Drink", dealHighlight: "Draft beers $3–$4, well drinks $4–$5, house wine $4–$5, select appetizers discounted", notes: "" },
+        { name: "The Oxford Cafe", category: "Bar / Restaurant", address: "337 N Higgins Ave, Missoula, MT 59802", lat: 46.8730446, lng: -113.9939706, days: { sunday: true, monday: true, tuesday: true, wednesday: true, thursday: true, friday: true, saturday: true }, happyHourDays: "Daily", startTime: "3:00 PM", endTime: "6:00 PM", startTimeMinutes: 15 * 60, endTimeMinutes: 18 * 60, dealType: "Drinks", dealHighlight: "Draft beers $3–$4, well drinks $4", notes: "" },
+        { name: "Highlander Beer - Missoula Brewing Co", category: "Brewery", address: "200 International Dr, Missoula, MT 59808", lat: 46.9048925, lng: -114.0452909, days: { sunday: false, monday: true, tuesday: true, wednesday: true, thursday: false, friday: false, saturday: false }, happyHourDays: "Mon-Wed", startTime: "2:00 PM", endTime: "4:00 PM", startTimeMinutes: 14 * 60, endTimeMinutes: 16 * 60, dealType: "Drinks", dealHighlight: "$5 Draft beer, $6 Mimosa", notes: "" },
+        { name: "The Dram Shop", category: "Bar", address: "229 E Front St, Missoula, MT 59802", lat: 46.8693129, lng: -113.9929628, days: { sunday: true, monday: true, tuesday: true, wednesday: true, thursday: true, friday: true, saturday: true }, happyHourDays: "Daily", startTime: "11:30 AM", endTime: "6:00 PM", startTimeMinutes: 11.5 * 60, endTimeMinutes: 18 * 60, dealType: "Food & Drink", dealHighlight: "Draft beers ½ off, wine ½ off, well drinks ½ off, frozen cocktails $10, munchie menu $7.75", notes: "" },
+        { name: "The Dram Shop Central", category: "Bar", address: "2700 Paxson St ste g, Missoula, MT 59801", lat: 46.8431603, lng: -114.028711, days: { sunday: true, monday: true, tuesday: true, wednesday: true, thursday: true, friday: true, saturday: true }, happyHourDays: "Daily", startTime: "12:30 PM", endTime: "7:00 PM", startTimeMinutes: 12.5 * 60, endTimeMinutes: 19 * 60, dealType: "Food & Drink", dealHighlight: "Draft beers ½ off, wine ½ off, well drinks ½ off, frozen cocktails $10, munchie menu $7.75", notes: "" },
+        { name: "Plonk", category: "Bar / Restaurant", address: "322 N. Higgins Ave, Missoula, MT 59802", lat: 46.8725878, lng: -113.9932984, days: { sunday: true, monday: true, tuesday: true, wednesday: true, thursday: true, friday: true, saturday: true }, happyHourDays: "Daily", startTime: "3:00 PM", endTime: "5:00 PM", startTimeMinutes: 15 * 60, endTimeMinutes: 17 * 60, dealType: "Food & Drink", dealHighlight: "Beers $3, well drinks $5, wine $8, cocktails $10", notes: "Late night specials available Friday and Saturday." },
+        { name: "Top Hat", category: "Bar / Restaurant", address: "134 W Front St, Missoula, MT 59802", lat: 46.8706744, lng: -113.9960609, days: { sunday: true, monday: true, tuesday: true, wednesday: true, thursday: true, friday: true, saturday: true }, happyHourDays: "Daily", startTime: "3:00 PM", endTime: "6:00 PM", startTimeMinutes: 15 * 60, endTimeMinutes: 18 * 60, dealType: "Drinks", dealHighlight: "Draft beers $4–$5, well drinks $4–$5", notes: "" },
+        { name: "Stave & Hoop Speakeasy 21+", category: "Bar", address: "223 N Higgins Ave, Missoula, MT 59802", lat: 46.8738065, lng: -113.9934118, days: { sunday: false, monday: false, tuesday: true, wednesday: true, thursday: true, friday: true, saturday: false }, happyHourDays: "Tue–Fri", startTime: "4:06 PM", endTime: "5:30 PM", startTimeMinutes: 16.1 * 60, endTimeMinutes: 17.5 * 60, dealType: "Drinks", dealHighlight: "Drinks ½ off, food 25% off, martinis $8", notes: "½ off applies to wells, draft beers, and house wine." },
+        { name: "Blue Canyon Kitchen & Tavern", category: "Bar / Restaurant", address: "3720 N Reserve St, Missoula, MT 59808", lat: 46.9045123, lng: -114.0373451, days: { sunday: false, monday: true, tuesday: true, wednesday: true, thursday: true, friday: true, saturday: false }, happyHourDays: "Mon–Fri", startTime: "3:00 PM", endTime: "6:00 PM", startTimeMinutes: 15 * 60, endTimeMinutes: 18 * 60, dealType: "Food & Drink", dealHighlight: "Draft beers $4–$5, well drinks $4–$5, house wine $5, select appetizers $6–$8", notes: "" },
+        { name: "Outback Steakhouse", category: "Bar / Restaurant", address: "2415 N Reserve St, Missoula, MT 59808", lat: 46.8876797, lng: -114.0403831, days: { sunday: false, monday: true, tuesday: true, wednesday: true, thursday: true, friday: true, saturday: false }, happyHourDays: "Mon–Fri", startTime: "3:00 PM", endTime: "6:00 PM", startTimeMinutes: 15 * 60, endTimeMinutes: 18 * 60, dealType: "Food & Drink", dealHighlight: "Domestic beers $4–$5, house wine $5, select cocktails $5–$6, select appetizers discounted", notes: "" },
+        { name: "Cambie Taphouse + Coffee", category: "Bar", address: "2413 S Higgins Ave, Missoula, MT 59801", lat: 46.8480998, lng: -113.9976541, days: { sunday: true, monday: true, tuesday: true, wednesday: true, thursday: true, friday: true, saturday: true }, happyHourDays: "Daily", startTime: "3:00 PM", endTime: "6:00 PM", startTimeMinutes: 15 * 60, endTimeMinutes: 18 * 60, dealType: "Drinks", dealHighlight: "Draft beers $4–$5, rotating tap specials", notes: "" },
+        { name: "Bridge Pizza - Higgins", category: "Bar / Restaurant", address: "600 S Higgins Ave, Missoula, MT 59801", lat: 46.8657471, lng: -113.9970177, days: { sunday: true, monday: true, tuesday: true, wednesday: true, thursday: true, friday: true, saturday: true }, happyHourDays: "Daily", startTime: "3:00 PM", endTime: "5:00 PM", startTimeMinutes: 15 * 60, endTimeMinutes: 17 * 60, dealType: "Food & Drink", dealHighlight: "Buy one slice of pizza & get a free 10oz draft beer, buy 2 slices, get a free pint", notes: "" },
+        { name: "Bridge Pizza - Brooks", category: "Bar / Restaurant", address: "3000 Brooks St, Missoula, MT 59801", lat: 46.8432862, lng: -114.0254111, days: { sunday: true, monday: true, tuesday: true, wednesday: true, thursday: true, friday: true, saturday: true }, happyHourDays: "Daily", startTime: "4:00 PM", endTime: "6:00 PM", startTimeMinutes: 16 * 60, endTimeMinutes: 18 * 60, dealType: "Food & Drink", dealHighlight: "Buy one slice of pizza & get a free 10oz draft beer, buy 2 slices, get a free pint", notes: "" },
+        { name: "Pie Hole", category: "Bar / Restaurant", address: "525 N Higgins Ave, Missoula, MT 59802", lat: 46.8748696, lng: -113.9925664, days: { sunday: false, monday: true, tuesday: true, wednesday: true, thursday: true, friday: true, saturday: false }, happyHourDays: "Mon–Fri", startTime: "3:00 PM", endTime: "4:00 PM", startTimeMinutes: 15 * 60, endTimeMinutes: 16 * 60, dealType: "Food", dealHighlight: "2 slices $5.15", notes: "" },
+        { name: "Michi Ramen Bar", category: "Bar / Restaurant", address: "137 W Front St, Missoula, MT 59802", lat: 46.8702903, lng: -113.9964472, days: { sunday: false, monday: true, tuesday: true, wednesday: true, thursday: true, friday: true, saturday: false }, happyHourDays: "Mon–Fri", startTime: "2:00 PM", endTime: "5:00 PM", startTimeMinutes: 14 * 60, endTimeMinutes: 17 * 60, dealType: "Food & Drink", dealHighlight: "Ramen or rice bowl + drink $20, draft beer $5, well drinks $5, draft cocktails $7, house sake $4", notes: "Combo includes draft beer or draft cocktail. House sake served in 4 oz pours. Select appetizers discounted." },
+        { name: "M-80 Chicken", category: "Restaurant", address: "222 W Main St, Missoula, MT 59802", lat: 46.8721218, lng: -113.9967034, days: { sunday: true, monday: true, tuesday: true, wednesday: true, thursday: true, friday: true, saturday: true }, happyHourDays: "Daily", startTime: "3:00 PM", endTime: "6:00 PM", startTimeMinutes: 15 * 60, endTimeMinutes: 18 * 60, dealType: "Food & Drink", dealHighlight: "$15 loaded fries, half order of wings & a beer for $11", notes: "" },
+        { name: "Kettlehouse Brewing", category: "Brewery", address: "605 Cold Smoke Ave, Bonner, MT 59823", lat: 46.8758622, lng: -113.8629942, days: { sunday: true, monday: true, tuesday: true, wednesday: true, thursday: true, friday: true, saturday: true }, happyHourDays: "Daily", startTime: "3:00 PM", endTime: "6:00 PM", startTimeMinutes: 15 * 60, endTimeMinutes: 18 * 60, dealType: "Food & Drink", dealHighlight: "Bites starting at $4, pints starting at $5.50", notes: "" },
+        { name: "Tamarack Brewing Co", category: "Brewery", address: "231 W Front St, Missoula, MT 59802", lat: 46.8709687, lng: -113.9973373, days: { sunday: false, monday: true, tuesday: true, wednesday: true, thursday: true, friday: true, saturday: false }, happyHourDays: "Mon–Fri", startTime: "2:00 PM", endTime: "5:00 PM", startTimeMinutes: 14 * 60, endTimeMinutes: 17 * 60, dealType: "Food & Drink", dealHighlight: "Flagship beer pints $4.50, happy hour cocktails $5, burgers $7.90, sliders $6.50, wings $8.90", notes: "Discounted food includes beef or fried chicken sliders, half-order wings, mac & cheese, garlic bleu fries, and chips & guac. Beermosa (10 oz) also discounted." },
+        { name: "Le Petit", category: "Restaurant", address: "529 S Higgins Ave, Missoula, MT 59801", lat: 46.8662514, lng: -113.9976829, days: { sunday: false, monday: true, tuesday: true, wednesday: true, thursday: true, friday: true, saturday: false }, happyHourDays: "Mon–Fri", startTime: "1:00 PM", endTime: "4:00 PM", startTimeMinutes: 13 * 60, endTimeMinutes: 16 * 60, dealType: "Food & Drink", dealHighlight: "Daily rotating specials: Mon $2.50 Americano | Tue Buy 1 Get 1 50% Off Espresso Drinks | Wed $1 off Hearth Loaves | Thu FREE 8oz drip with pastry | Fri $0.75 off Pizza Dough", notes: "Weekday Winter Happy Hour with different deal each day" },
+        { name: "Mustard Seed", category: "Bar", address: "2901 Brooks St Suite OUT1, Missoula, MT 59801", lat: 46.84472338, lng: -114.0277884, days: { sunday: false, monday: true, tuesday: true, wednesday: true, thursday: true, friday: true, saturday: false }, happyHourDays: "Mon–Fri", startTime: "3:00 PM", endTime: "6:00 PM", startTimeMinutes: 15 * 60, endTimeMinutes: 18 * 60, dealType: "Food & Drink", dealHighlight: "Dim sum $4.25–$6.50, wine $1 off, specialty drinks $2 off", notes: "Dim sum items include spring rolls, California rolls, char siu pork, gyoza, shrimp wontons, pork wontons, Asian glazed pork ribs, and Big Island wings. Happy hour also runs 8 pm–close (bar only)." },
+      ];
+
+      let map;
+      let markers = [];
+      let currentCategory = "all";
+      let currentDay = "all";
+      let currentTimeRange = { start: 0, end: 23 * 60 + 59 };
+      let mobileOpen = false;
+
+      function getCategoryColor(category) {
+        switch (category) {
+          case "Bar":
+            return "#a855f7";
+          case "Bar / Restaurant":
+            return "#10b981";
+          case "Restaurant":
+            return "#f59e0b";
+          case "Brewery":
+            return "#f43f5e";
+          case "Distillery":
+            return "#8b5cf6";
+          default:
+            return "#6366f1";
+        }
+      }
+
+      function getCategoryIcon(category) {
+        switch (category) {
+          case "Bar":
+            return "🍸";
+          case "Bar / Restaurant":
+            return "🍻";
+          case "Restaurant":
+            return "🍴";
+          case "Brewery":
+            return "🍺";
+          case "Distillery":
+            return "🥃";
+          default:
+            return "📍";
+        }
+      }
+
+      function createCustomIcon(category) {
+        const color = getCategoryColor(category);
+        const icon = getCategoryIcon(category);
+
+        return L.divIcon({
+          className: "custom-marker",
+          html: `
+            <div class="marker-pin" style="background:${color};">
+              <span class="marker-icon">${icon}</span>
+            </div>
+          `,
+          iconSize: [36, 36],
+          iconAnchor: [18, 36],
+          popupAnchor: [0, -36],
+        });
+      }
+
+      function createPopupContent(venue) {
+        const color = getCategoryColor(venue.category);
+        const dayNames = ["sunday", "monday", "tuesday", "wednesday", "thursday", "friday", "saturday"];
+        const dayLabels = ["S", "M", "T", "W", "T", "F", "S"];
+
+        const dayBadges = dayNames
+          .map((day, i) => {
+            const isActive = venue.days[day];
+            return `<span class="day-badge ${isActive ? "day-active" : "day-inactive"}">${dayLabels[i]}</span>`;
+          })
+          .join("");
+
+        return `
+          <div class="bg-slate-800 text-white">
+            <div class="border-b border-slate-700 p-4" style="background:linear-gradient(135deg, ${color}22, ${color}44);">
+              <div class="flex items-start justify-between gap-2">
+                <h3 class="text-lg font-bold leading-tight">${venue.name}</h3>
+                <span class="text-2xl">${getCategoryIcon(venue.category)}</span>
+              </div>
+              <p class="mt-1 text-sm text-slate-300">${venue.category}</p>
+            </div>
+            <div class="space-y-3 p-4">
+              <div>
+                <p class="mb-1 text-xs font-semibold uppercase text-slate-400">Address</p>
+                <p class="text-sm text-slate-200">${venue.address}</p>
+              </div>
+              <div>
+                <p class="mb-2 text-xs font-semibold uppercase text-slate-400">Happy Hour Days</p>
+                <div class="flex gap-1">${dayBadges}</div>
+              </div>
+              <div class="flex gap-4">
+                <div>
+                  <p class="mb-1 text-xs font-semibold uppercase text-slate-400">Time</p>
+                  <p class="text-sm font-medium" style="color:${color}">${venue.startTime} – ${venue.endTime}</p>
+                </div>
+                <div>
+                  <p class="mb-1 text-xs font-semibold uppercase text-slate-400">Deal Type</p>
+                  <p class="text-sm text-slate-200">${venue.dealType}</p>
+                </div>
+              </div>
+              <div class="rounded-lg bg-slate-700/50 p-3">
+                <p class="mb-1 text-xs font-semibold uppercase text-slate-400">Deals</p>
+                <p class="text-sm text-slate-100">${venue.dealHighlight}</p>
+              </div>
+              ${venue.notes ? `<div class="text-xs italic text-slate-400">Tip: ${venue.notes}</div>` : ""}
+            </div>
+          </div>
+        `;
+      }
+
+      function createVenueCard(venue, index) {
+        const color = getCategoryColor(venue.category);
+        const highlight = venue.dealHighlight.length > 72 ? `${venue.dealHighlight.slice(0, 72)}...` : venue.dealHighlight;
+
+        return `
+          <div class="venue-card cursor-pointer rounded-xl border border-transparent bg-slate-700/50 p-3" onclick="focusVenue(${index})">
+            <div class="flex items-start gap-3">
+              <div class="flex h-10 w-10 flex-shrink-0 items-center justify-center rounded-lg text-xl" style="background:${color}33;">
+                ${getCategoryIcon(venue.category)}
+              </div>
+              <div class="min-w-0 flex-1">
+                <h3 class="truncate text-sm font-semibold">${venue.name}</h3>
+                <p class="truncate text-xs text-slate-400">${venue.happyHourDays} • ${venue.startTime}–${venue.endTime}</p>
+                <p class="line-clamp-2 mt-1 text-xs text-slate-300">${highlight}</p>
+              </div>
+            </div>
+          </div>
+        `;
+      }
+
+      function isTimeInRange(venueStart, venueEnd, filterStart, filterEnd) {
+        if (filterStart <= filterEnd) {
+          return venueStart <= filterEnd && venueEnd >= filterStart;
+        }
+
+        return (
+          (venueStart <= 1439 && venueEnd >= filterStart) ||
+          (venueStart <= filterEnd && venueEnd >= 0)
+        );
+      }
+
+      function formatMinutes(minutes) {
+        const normalized = ((minutes % 1440) + 1440) % 1440;
+        const hours = Math.floor(normalized / 60);
+        const mins = normalized % 60;
+        const suffix = hours >= 12 ? "PM" : "AM";
+        const displayHours = hours % 12 || 12;
+        return `${displayHours}:${String(mins).padStart(2, "0")} ${suffix}`;
+      }
+
+      function getFiltersSummary(filteredCount) {
+        const parts = [];
+
+        if (currentCategory !== "all") parts.push(currentCategory);
+        if (currentDay !== "all") parts.push(currentDay.charAt(0).toUpperCase() + currentDay.slice(1));
+
+        const allDay = currentTimeRange.start === 0 && currentTimeRange.end === 1439;
+        if (!allDay) {
+          parts.push(`${formatMinutes(currentTimeRange.start)} to ${formatMinutes(currentTimeRange.end)}`);
+        }
+
+        if (!parts.length) {
+          return `Showing all ${filteredCount} venues.`;
+        }
+
+        return `Showing ${filteredCount} venue${filteredCount === 1 ? "" : "s"} for ${parts.join(" • ")}.`;
+      }
+
+      function filterVenues() {
+        return venues.filter((venue) => {
+          const categoryMatch = currentCategory === "all" || venue.category === currentCategory;
+          const dayMatch = currentDay === "all" || venue.days[currentDay];
+          const timeMatch = isTimeInRange(
+            venue.startTimeMinutes,
+            venue.endTimeMinutes,
+            currentTimeRange.start,
+            currentTimeRange.end
+          );
+          return categoryMatch && dayMatch && timeMatch;
+        });
+      }
+
+      function renderVenueLists(filtered) {
+        const venueList = document.getElementById("venue-list");
+        const mobileList = document.getElementById("mobile-venue-list");
+
+        if (!filtered.length) {
+          const emptyHtml = `
+            <div class="empty-state rounded-2xl bg-slate-900/30 p-5 text-center">
+              <p class="text-sm font-semibold text-slate-200">No venues match these filters.</p>
+              <p class="mt-1 text-xs text-slate-400">Try widening the day or time range.</p>
+            </div>
+          `;
+          venueList.innerHTML = emptyHtml;
+          mobileList.innerHTML = emptyHtml;
+          return;
+        }
+
+        const cardsHtml = filtered
+          .map((venue) => createVenueCard(venue, venues.indexOf(venue)))
+          .join("");
+
+        venueList.innerHTML = cardsHtml;
+        mobileList.innerHTML = cardsHtml;
+      }
+
+      function updateMapBounds(filtered) {
+        if (!filtered.length) {
+          map.setView([46.8721, -114.0085], 12);
+          return;
+        }
+
+        const bounds = L.latLngBounds(filtered.map((venue) => [venue.lat, venue.lng]));
+        map.fitBounds(bounds.pad(0.12), { maxZoom: 14 });
+      }
+
+      function updateMarkers({ fitBounds = false } = {}) {
+        markers.forEach((marker) => map.removeLayer(marker));
+        markers = [];
+
+        const filtered = filterVenues();
+
+        filtered.forEach((venue) => {
+          const marker = L.marker([venue.lat, venue.lng], {
+            icon: createCustomIcon(venue.category),
+          }).bindPopup(createPopupContent(venue), {
+            maxWidth: 320,
+            className: "custom-popup",
+          });
+
+          marker.addTo(map);
+          markers.push(marker);
+        });
+
+        document.getElementById("venue-count").textContent = filtered.length;
+        document.getElementById("results-summary").textContent = getFiltersSummary(filtered.length);
+
+        renderVenueLists(filtered);
+
+        if (fitBounds) {
+          updateMapBounds(filtered);
+        }
+      }
+
+      function syncTimeSelects(startMinutes, endMinutes) {
+        const startValue = `${String(Math.floor(startMinutes / 60)).padStart(2, "0")}:00`;
+        const endValue = `${String(Math.floor(endMinutes / 60)).padStart(2, "0")}:00`;
+        document.getElementById("start-time-filter").value = startValue;
+        document.getElementById("end-time-filter").value = endValue;
+      }
+
+      function filterByNow() {
+        const now = new Date();
+        const dayNames = ["sunday", "monday", "tuesday", "wednesday", "thursday", "friday", "saturday"];
+        const dayToday = dayNames[now.getDay()];
+        const currentMinutes = now.getHours() * 60 + now.getMinutes();
+
+        currentCategory = "all";
+        currentDay = dayToday;
+        currentTimeRange = { start: currentMinutes, end: currentMinutes };
+
+        document.querySelectorAll(".filter-btn[data-category]").forEach((btn) => {
+          if (btn.dataset.category === "all") {
+            btn.classList.remove("bg-slate-700", "text-slate-300");
+            btn.classList.add("bg-amber-500", "text-white", "active");
+          } else {
+            btn.classList.remove("bg-amber-500", "text-white", "active");
+            btn.classList.add("bg-slate-700", "text-slate-300");
+          }
+        });
+
+        document.getElementById("day-filter").value = dayToday;
+        syncTimeSelects(currentMinutes, currentMinutes);
+        updateMarkers({ fitBounds: true });
+      }
+
+      function filterByCategory(category) {
+        currentCategory = category;
+
+        document.querySelectorAll(".filter-btn[data-category]").forEach((btn) => {
+          if (btn.dataset.category === category) {
+            btn.classList.remove("bg-slate-700", "text-slate-300");
+            btn.classList.add("bg-amber-500", "text-white", "active");
+          } else {
+            btn.classList.remove("bg-amber-500", "text-white", "active");
+            btn.classList.add("bg-slate-700", "text-slate-300");
+          }
+        });
+
+        updateMarkers({ fitBounds: true });
+      }
+
+      function filterByDay(day) {
+        currentDay = day;
+        updateMarkers({ fitBounds: true });
+      }
+
+      function updateTimeFilter() {
+        const startTimeSelect = document.getElementById("start-time-filter");
+        const endTimeSelect = document.getElementById("end-time-filter");
+
+        const [startHour, startMin] = startTimeSelect.value.split(":").map(Number);
+        const [endHour, endMin] = endTimeSelect.value.split(":").map(Number);
+
+        currentTimeRange = {
+          start: startHour * 60 + startMin,
+          end: endHour * 60 + endMin,
+        };
+
+        updateMarkers({ fitBounds: true });
+      }
+
+      function focusVenue(index) {
+        const venue = venues[index];
+        map.setView([venue.lat, venue.lng], 16);
+
+        const selectedMarker = markers.find((marker) => {
+          const latlng = marker.getLatLng();
+          return latlng.lat === venue.lat && latlng.lng === venue.lng;
+        });
+
+        if (selectedMarker) {
+          selectedMarker.openPopup();
+        }
+
+        if (mobileOpen) {
+          closeMobilePanel();
+        }
+      }
+
+      function toggleMobilePanel() {
+        const panel = document.getElementById("mobile-panel");
+        if (mobileOpen) {
+          panel.classList.add("translate-y-full");
+          panel.classList.remove("translate-y-0");
+        } else {
+          panel.classList.remove("translate-y-full");
+          panel.classList.add("translate-y-0");
+        }
+        mobileOpen = !mobileOpen;
+      }
+
+      function closeMobilePanel() {
+        const panel = document.getElementById("mobile-panel");
+        panel.classList.add("translate-y-full");
+        panel.classList.remove("translate-y-0");
+        mobileOpen = false;
+      }
+
+      function initFilterDefaults() {
+        document.getElementById("start-time-filter").value = "00:00";
+        document.getElementById("end-time-filter").value = "23:00";
+      }
+
+      function initMap() {
+        map = L.map("map", {
+          center: [46.8721, -114.0085],
+          zoom: 13,
+          zoomControl: true,
+        });
+
+        L.tileLayer("https://{s}.basemaps.cartocdn.com/light_all/{z}/{x}/{y}{r}.png", {
+          attribution:
+            '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors &copy; <a href="https://carto.com/attributions">CARTO</a>',
+          subdomains: "abcd",
+          maxZoom: 19,
+        }).addTo(map);
+
+        initFilterDefaults();
+        updateMarkers({ fitBounds: true });
+      }
+
+      async function onConfigChange(config) {
+        const mapTitle = config.map_title || defaultConfig.map_title;
+        const subtitleText = config.subtitle_text || defaultConfig.subtitle_text;
+
+        document.title = mapTitle;
+        document.getElementById("map-title").textContent = mapTitle;
+        document.getElementById("subtitle-text").textContent = subtitleText;
+      }
+
+      function mapToCapabilities() {
+        return {
+          recolorables: [],
+          borderables: [],
+          fontEditable: undefined,
+          fontSizeable: undefined,
+        };
+      }
+
+      function mapToEditPanelValues(config) {
+        return new Map([
+          ["map_title", config.map_title || defaultConfig.map_title],
+          ["subtitle_text", config.subtitle_text || defaultConfig.subtitle_text],
+        ]);
+      }
+
+      window.elementSdk.init({
+        defaultConfig,
+        onConfigChange,
+        mapToCapabilities,
+        mapToEditPanelValues,
+      });
+
+      initMap();
+    </script>
+  </body>
+</html>
